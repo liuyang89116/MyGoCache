@@ -1,3 +1,3 @@
-# MyGoCache
+# GeeCache
 
 refer to groupcache
