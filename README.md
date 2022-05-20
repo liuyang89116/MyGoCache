@@ -1,3 +1,3 @@
 # GeeCache
 
-refer to groupcache
+Credits to [GeeCache](https://geektutu.com/post/geecache.html)
