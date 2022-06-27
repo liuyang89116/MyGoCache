@@ -1,18 +1,28 @@
 package geecache
 
 import (
+	"example/geecache/consistenthash"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 )
 
-const defaultBasePath = "/_geecache/"
+const (
+	defaultBasePath = "/_geecache/"
+	defaultReplicas = 50
+)
 
 // HttpPool implements PeerPicker for a pool of Http peers
 type HttpPool struct {
-	self     string // this peer's base url, e.g. "https://example.net:8000"
-	basePath string
+	self        string // this peer's base url, e.g. "https://example.net:8000"
+	basePath    string
+	mu          sync.Mutex // guards peers and httpGetters
+	peers       *consistenthash.Map
+	httpGetters map[string]*httpGetter // keyed by e.g. "http://10.0.0.2:8008"
 }
 
 // NewHttpPool inits a Http pool of peers
@@ -60,3 +70,64 @@ func (p *HttpPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(byteView.ByteSlice())
 }
+
+// Set updates the httppool's list of peers
+func (p *HttpPool) Set(peers ...string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.peers = consistenthash.New(defaultReplicas, nil)
+	p.peers.Add(peers...)
+	p.httpGetters = make(map[string]*httpGetter, len(peers))
+	for _, peer := range peers {
+		p.httpGetters[peer] = &httpGetter{
+			baseUrl: peer + p.basePath,
+		}
+	}
+}
+
+// PickPeer picks a peer based on a given key
+func (p *HttpPool) PickPeer(key string) (PeerGetter, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if peer := p.peers.Get(key); peer != "" && peer != p.self {
+		p.Log("Picking a peer %s", peer)
+		return p.httpGetters[peer], true
+	}
+
+	return nil, false
+}
+
+var _ PeerPicker = (*HttpPool)(nil)
+
+type httpGetter struct {
+	baseUrl string
+}
+
+func (h *httpGetter) Get(group string, key string) ([]byte, error) {
+	u := fmt.Sprintf(
+		"%v%v%v",
+		h.baseUrl,
+		url.QueryEscape(group),
+		url.QueryEscape(key),
+	)
+	rst, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer rst.Body.Close()
+
+	if rst.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned: %v", rst.Status)
+	}
+
+	bytes, err := ioutil.ReadAll(rst.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %v", err)
+	}
+
+	return bytes, nil
+}
+
+var _ PeerGetter = (*httpGetter)(nil)
