@@ -86,7 +86,7 @@ func (g *Group) load(key string) (value ByteView, err error) {
 				return value, nil
 			}
 		}
-		log.Panicln("[GeeCache] failed to get from peer", err)
+		log.Println("[GeeCache] failed to get from peer", err)
 	}
 
 	return g.getLocally(key)
