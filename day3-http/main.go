@@ -8,7 +8,7 @@ import (
 )
 
 var db = map[string]string{
-	"Tom":  "630",
+	"Tom":  "1630",
 	"Jack": "589",
 	"Sam":  "821",
 }
@@ -29,7 +29,7 @@ func main() {
 			if v, ok := db[key]; ok {
 				return []byte(v), nil
 			}
-			return nil, fmt.Errorf("%s doesn't exits\n", key)
+			return nil, fmt.Errorf("%s doesn't exits", key)
 		},
 	))
 

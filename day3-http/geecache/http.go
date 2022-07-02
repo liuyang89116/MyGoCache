@@ -25,7 +25,7 @@ func NewHttpPool(self string) *HttpPool {
 
 // Log info with server name
 func (p *HttpPool) Log(format string, v ...interface{}) {
-	log.Printf("[Server %s] %s/n", p.self, fmt.Sprintf(format, v...))
+	log.Printf("[Server %s] %s", p.self, fmt.Sprintf(format, v...))
 }
 
 // ServeHTTP handles all http requests
